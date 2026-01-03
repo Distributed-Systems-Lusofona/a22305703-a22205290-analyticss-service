@@ -1,10 +1,14 @@
 package pt.ulusofona.cd.store.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pt.ulusofona.cd.store.dto.RestaurantMetricsResponse;
 import pt.ulusofona.cd.store.dto.TopRestaurantDto;
+import pt.ulusofona.cd.store.events.EventEnvelope;
+import pt.ulusofona.cd.store.events.ReservationEventPayload;
+import pt.ulusofona.cd.store.events.RestaurantNotifiedPayload;
 import pt.ulusofona.cd.store.model.ProcessedEvent;
 import pt.ulusofona.cd.store.model.RestaurantMetrics;
 import pt.ulusofona.cd.store.repository.ProcessedEventRepository;
@@ -21,10 +25,48 @@ public class AnalyticsService {
     private final RestaurantMetricsRepository restaurantMetricsRepository;
     private final ProcessedEventRepository processedEventRepository;
 
-    /**
-     * Atualiza métricas a partir de um evento reservation.* (created/confirmed/cancelled).
-     * Idempotência: usa eventKey = reservationId + ":" + eventType
-     */
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Transactional
+    public void processEvent(EventEnvelope<?> envelope) {
+
+        if (envelope == null || envelope.getEventType() == null || envelope.getEventType().isBlank()) {
+            throw new IllegalArgumentException("eventType is required");
+        }
+
+        String eventType = envelope.getEventType();
+
+        if (eventType.startsWith("reservation.")) {
+            ReservationEventPayload p =
+                    objectMapper.convertValue(envelope.getPayload(), ReservationEventPayload.class);
+
+            if (p.getReservationId() == null) {
+                throw new IllegalArgumentException("reservationId is required in reservation payload");
+            }
+            if (p.getRestaurantId() == null) {
+                throw new IllegalArgumentException("restaurantId is required in reservation payload");
+            }
+
+            recordReservationEvent(eventType, p.getReservationId(), p.getRestaurantId());
+            return;
+        }
+
+        if ("restaurant.notified".equals(eventType)) {
+            RestaurantNotifiedPayload p =
+                    objectMapper.convertValue(envelope.getPayload(), RestaurantNotifiedPayload.class);
+
+            if (p.getReservationId() == null) {
+                throw new IllegalArgumentException("reservationId is required in restaurant.notified payload");
+            }
+            if (p.getRestaurantId() == null) {
+                throw new IllegalArgumentException("restaurantId is required in restaurant.notified payload");
+            }
+
+            recordRestaurantNotified(p.getReservationId(), p.getRestaurantId());
+        }
+    }
+
+
     @Transactional
     public void recordReservationEvent(String eventType, Long reservationId, Long restaurantId) {
 
@@ -41,10 +83,11 @@ public class AnalyticsService {
         String eventKey = reservationId + ":" + eventType;
 
         if (processedEventRepository.existsById(eventKey)) {
-            return; // já processado
+            return;
         }
 
-        // marcar como processado
+        // marcar como processado primeiro (garante idempotência mesmo se houver retries)
+        //Nota importantastee
         ProcessedEvent pe = new ProcessedEvent();
         pe.setEventKey(eventKey);
         pe.setEventType(eventType);
@@ -52,7 +95,6 @@ public class AnalyticsService {
         pe.setProcessedAt(Instant.now());
         processedEventRepository.save(pe);
 
-        // obter ou criar métricas do restaurante
         RestaurantMetrics metrics = restaurantMetricsRepository.findById(restaurantId)
                 .orElseGet(() -> {
                     RestaurantMetrics m = new RestaurantMetrics();
@@ -70,7 +112,6 @@ public class AnalyticsService {
             case "reservation.confirmed" -> metrics.setConfirmedCount(metrics.getConfirmedCount() + 1);
             case "reservation.cancelled" -> metrics.setCancelledCount(metrics.getCancelledCount() + 1);
             default -> {
-                // se vier outro eventType, ignora (ou lança erro se preferires)
                 return;
             }
         }
@@ -79,14 +120,9 @@ public class AnalyticsService {
         restaurantMetricsRepository.save(metrics);
     }
 
-    /**
-     * Atualiza métricas quando chega restaurant.notified.
-     * Nota: para contar por restaurante, o consumer tem de te passar o restaurantId.
-     */
+
     @Transactional
     public void recordRestaurantNotified(Long reservationId, Long restaurantId) {
-
-        String eventType = "restaurant.notified";
 
         if (reservationId == null) {
             throw new IllegalArgumentException("reservationId is required");
@@ -95,6 +131,7 @@ public class AnalyticsService {
             throw new IllegalArgumentException("restaurantId is required");
         }
 
+        String eventType = "restaurant.notified";
         String eventKey = reservationId + ":" + eventType;
 
         if (processedEventRepository.existsById(eventKey)) {
@@ -127,6 +164,11 @@ public class AnalyticsService {
 
     @Transactional(readOnly = true)
     public RestaurantMetricsResponse getMetricsByRestaurantId(Long restaurantId) {
+
+        if (restaurantId == null) {
+            throw new IllegalArgumentException("restaurantId is required");
+        }
+
         RestaurantMetrics m = restaurantMetricsRepository.findById(restaurantId)
                 .orElseGet(() -> {
                     RestaurantMetrics empty = new RestaurantMetrics();

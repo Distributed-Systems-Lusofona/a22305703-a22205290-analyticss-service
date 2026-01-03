@@ -16,9 +16,7 @@ public class AnalyticsController {
 //sssslllljj
     private final AnalyticsService analyticsService;
 
-    /**
-     * Ex.: GET /api/v1/analytics/restaurants/10/metrics
-     */
+
     @GetMapping("/restaurants/{restaurantId}/metrics")
     public ResponseEntity<RestaurantMetricsResponse> getRestaurantMetrics(
             @PathVariable Long restaurantId
@@ -26,10 +24,6 @@ public class AnalyticsController {
         return ResponseEntity.ok(analyticsService.getMetricsByRestaurantId(restaurantId));
     }
 
-    /**
-     * Ex.: GET /api/v1/analytics/top-restaurants?limit=10
-     * Ordena por confirmedCount desc.
-     */
     @GetMapping("/top-restaurants")
     public ResponseEntity<List<TopRestaurantDto>> getTopRestaurants(
             @RequestParam(defaultValue = "10") int limit
