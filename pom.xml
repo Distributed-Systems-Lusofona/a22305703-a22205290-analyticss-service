@@ -14,7 +14,7 @@
     </parent>
 
     <groupId>pt.ulusofona.cd</groupId>
-    <artifactId>supplier-service</artifactId>
+    <artifactId>analytics-service</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 

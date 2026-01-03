@@ -1,14 +1,14 @@
 server:
-  port: ${PORT}
+  port: ${PORT:8090}
 
 spring:
   application:
-    name: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME:analytics-service}
 
   datasource:
-    url: jdbc:postgresql://${POSTGRES_DB}:5432/${POSTGRES_DB}
-    username: ${POSTGRES_USER}
-    password: ${POSTGRES_PASSWORD}
+    url: jdbc:postgresql://analytics_db:5432/${POSTGRES_DB:analytics_db}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -18,30 +18,30 @@ spring:
         format_sql: true
 
   kafka:
-    producer:
-      bootstrap-servers: kafka:9092
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+      group-id: analytics-service-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+      auto-offset-reset: earliest
 
+restaurant:
+  service:
+    url: ${RESTAURANT_SERVICE_URL:http://restaurant-service:8087}
 
-supplier:
-  events:
-    supplier-deactivated-events: supplier-deactivated-events
-
-feign:
-  client:
-    config:
-      default:
-        connectTimeout: 5000
-        readTimeout: 10000
-        loggerLevel: FULL
-  hystrix:
-    enabled: false
+kafka:
+  topics:
+    reservation-created: reservation.created
+    reservation-confirmed: reservation.confirmed
+    reservation-cancelled: reservation.cancelled
+    restaurant-notified: restaurant.notified
 
 logging:
   level:
-    pt.ulusofona.cd.store.shared.client: DEBUG
-    feign: DEBUG
+    org.springframework.kafka: INFO
+    feign: INFO
 
 management:
   endpoints:

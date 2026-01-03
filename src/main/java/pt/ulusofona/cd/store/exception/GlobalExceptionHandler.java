@@ -1,47 +1,52 @@
 package pt.ulusofona.cd.store.exception;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(SupplierNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleSupplierNotFoundException(SupplierNotFoundException ex) {
-        Map<String, Object> error = new HashMap<>();
-        error.put("error", "Supplier Not Found");
-        error.put("message", ex.getMessage());
-        error.put("timestamp", Instant.now());
-        error.put("status", HttpStatus.NOT_FOUND.value());
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    private String traceId(HttpServletRequest req) {
+        String header = req.getHeader("X-Trace-Id");
+        return (header != null && !header.isBlank()) ? header : UUID.randomUUID().toString();
     }
 
+    private ResponseEntity<Map<String, Object>> build(HttpStatus status, String errorCode, String message, String traceId) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", errorCode);
+        body.put("message", message);
+        body.put("traceId", traceId);
+        return ResponseEntity.status(status).body(body);
+    }
+
+    // 404
+    @ExceptionHandler(RestaurantNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleRestaurantNotFound(RestaurantNotFoundException ex, HttpServletRequest req) {
+        return build(HttpStatus.NOT_FOUND, "NOT_FOUND", ex.getMessage(), traceId(req));
+    }
+
+    // 400: parâmetros inválidos
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
-        Map<String, Object> error = new HashMap<>();
-        error.put("error", "Bad Request");
-        error.put("message", ex.getMessage());
-        error.put("timestamp", Instant.now());
-        error.put("status", HttpStatus.BAD_REQUEST.value());
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "BAD_REQUEST", ex.getMessage(), traceId(req));
     }
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
-        Map<String, Object> error = new HashMap<>();
-        error.put("error", "Internal Server Error");
-        error.put("message", ex.getMessage());
-        error.put("timestamp", Instant.now());
-        error.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+    // 400: JSON mauuu
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleBadJson(Exception ex, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Invalid request body", traceId(req));
+    }
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    // 500
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, Object>> handleRuntime(RuntimeException ex, HttpServletRequest req) {
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", ex.getMessage(), traceId(req));
     }
 }

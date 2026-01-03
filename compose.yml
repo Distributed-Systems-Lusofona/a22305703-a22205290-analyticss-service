@@ -1,5 +1,5 @@
 services:
-  supplier_db:
+  analytics_db:
     image: postgres:17
     restart: always
     env_file: ".env"
@@ -16,29 +16,29 @@ services:
   flyway:
     image: flyway/flyway:11.12
     depends_on:
-      supplier_db:
+      analytics_db:
         condition: service_healthy
+    env_file: ".env"
     volumes:
       - ./migrations:/flyway/sql
     command: >
-      -url=jdbc:postgresql://$POSTGRES_DB:5432/$POSTGRES_DB
+      -url=jdbc:postgresql://analytics_db:5432/$POSTGRES_DB
       -user=$POSTGRES_USER
       -password=$POSTGRES_PASSWORD
       migrate
-    env_file: ".env"
     networks:
       - store-network
 
-  supplier-service:
+  analytics-service:
     build:
       context: .
       dockerfile: Dockerfile
     depends_on:
-      supplier_db:
+      analytics_db:
         condition: service_healthy
     env_file: ".env"
     ports:
-      - "8082:8082"
+      - "8090:8090"
     volumes:
       - ./src:/app/src
       - ~/.m2:/root/.m2
@@ -47,7 +47,6 @@ services:
 
 volumes:
   db_data:
-  pgadmin_data:
 
 networks:
   store-network:
