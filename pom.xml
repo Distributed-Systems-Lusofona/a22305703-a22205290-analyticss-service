@@ -18,8 +18,8 @@
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>Supplier Service</name>
-    <description>Supplier management microservice</description>
+    <name>Analytics Service</name>
+    <description>Analytics management microservice</description>
 
     <properties>
         <java.version>24</java.version>
