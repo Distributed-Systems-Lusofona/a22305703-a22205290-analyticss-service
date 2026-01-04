@@ -11,6 +11,6 @@ import pt.ulusofona.cd.store.dto.RestaurantDto;
 )
 public interface RestaurantClient {
 
-    @GetMapping("/api/v1/restaurants/{id}")
+    @GetMapping("/api/restaurants/{id}")
     RestaurantDto getRestaurantById(@PathVariable("id") Long id);
 }

@@ -10,12 +10,11 @@ import pt.ulusofona.cd.store.service.AnalyticsService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/analytics")
+@RequestMapping("/api/analytics")
 @RequiredArgsConstructor
 public class AnalyticsController {
-//sssslllljj
-    private final AnalyticsService analyticsService;
 
+    private final AnalyticsService analyticsService;
 
     @GetMapping("/restaurants/{restaurantId}/metrics")
     public ResponseEntity<RestaurantMetricsResponse> getRestaurantMetrics(
