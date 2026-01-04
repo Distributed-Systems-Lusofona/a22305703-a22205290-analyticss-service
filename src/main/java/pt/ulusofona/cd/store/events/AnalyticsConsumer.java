@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 import pt.ulusofona.cd.store.service.AnalyticsService;
 
@@ -12,7 +13,7 @@ import pt.ulusofona.cd.store.service.AnalyticsService;
 public class AnalyticsConsumer {
 
     private final AnalyticsService analyticsService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @KafkaListener(
             topics = {
@@ -23,19 +24,29 @@ public class AnalyticsConsumer {
             },
             groupId = "${spring.kafka.consumer.group-id}"
     )
-    public void onMessage(ConsumerRecord<String, String> record) {
+    public void onMessage(ConsumerRecord<String, String> record, Acknowledgment ack) {
         try {
-            if (record.value() == null || record.value().isBlank()) return;
+            String value = record.value();
+            if (value == null || value.isBlank()) {
+                ack.acknowledge();
+                return;
+            }
 
-            EventEnvelope<?> envelope =
-                    objectMapper.readValue(record.value(), EventEnvelope.class);
+            EventEnvelope<?> envelope = objectMapper.readValue(value, EventEnvelope.class);
 
-            if (envelope.getEventType() == null) return;
+            if (envelope.getEventType() == null || envelope.getEventType().isBlank()) {
+                ack.acknowledge();
+                return;
+            }
 
             analyticsService.processEvent(envelope);
 
+            ack.acknowledge();
+
         } catch (Exception ex) {
-            throw new RuntimeException("Failed to parse/process kafka message", ex);
+
+            System.err.println("[analytics-service] Failed to parse/process message. Skipping. error=" + ex.getMessage());
+            ack.acknowledge();
         }
     }
 }

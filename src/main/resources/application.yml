@@ -1,5 +1,5 @@
 server:
-  port: ${PORT:8091}
+  port: ${SERVER_PORT:8091}
 
 spring:
   application:
@@ -13,6 +13,8 @@ spring:
 
   jpa:
     show-sql: true
+    hibernate:
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
@@ -20,12 +22,16 @@ spring:
   kafka:
     consumer:
       bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
-      group-id: analytics-service-group
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:analytics-service-group}
+
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "*"
-      auto-offset-reset: earliest
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+      enable-auto-commit: false
+      auto-offset-reset: latest
+
+    listener:
+      ack-mode: manual
 
 restaurant:
   service:
