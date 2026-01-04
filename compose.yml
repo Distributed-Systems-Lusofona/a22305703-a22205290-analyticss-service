@@ -36,6 +36,8 @@ services:
     depends_on:
       analytics_db:
         condition: service_healthy
+      flyway:
+        condition: service_completed_successfully
     env_file: ".env"
     ports:
       - "8091:8091"
@@ -45,8 +47,32 @@ services:
     networks:
       - store-network
 
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8097:8080"
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
+      KAFKA_CLUSTERS_0_NAME: "local"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9092"
+    networks:
+      - store-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    ports:
+      - "8098:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data_analytics:/var/lib/pgadmin
+    networks:
+      - store-network
+
 volumes:
   db_data:
+  pgadmin_data_analytics:
 
 networks:
   store-network:
